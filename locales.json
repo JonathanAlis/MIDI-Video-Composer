@@ -1,0 +1,27 @@
+{
+    "pt": {
+      "title": "🎥🎶 Compositor de Vídeo com MIDI",
+      "header_upload_video": "Envie o vídeo de você cantando/tocando.",
+      "video_hints_header": "Dicas de como gravar o vídeo:", 
+      "video_hints": "Toque notas longas, passando por todas as notas do seu instrumento.\nTente centralizar o vídeo na área principal que você quer que fique visível. Use um fundo simples, boa iluminação e toque claramente.",
+      "upload_video": "Selecione o vídeo",
+      "header_upload_midi": "Envie o MIDI que deseja tocar.",
+      "midi_hints_header": "Dicas sobre o MIDI:", 
+      "midi_hints": "Um canal para cada voz/instrumento.\nQuanto maior e mais vozes, mais vai demorar o processamento.",
+      "upload_midi": "Selecione o arquivo MIDI",
+      "process_button": "Processar vídeo"
+    },
+    "en": {
+      "title": "🎥🎶 MIDI Video Composer",
+      "header_upload_video": "Video upload",
+      "video_hints_header": "Video hints and tips:", 
+      "video_hints": "Play the maximum range of notes, from lowest to higher. Play clearly and avoid background noise. \nBest results with longer notes.\nTry to center in the video the area you want people to see, and play clearly.",
+      "upload_video": "Select video",
+      "header_upload_midi": "Upload MIDI file",
+      "midi_hints_header": "MIDI hits and tips:", 
+      "midi_hints": "1 channel per voice/instrument.\nHigher number of voices or the duration, the longer will be the processing time.",
+      "upload_midi": "Select the MIDI file",
+      "process_button": "Process video"
+
+    }
+  }
