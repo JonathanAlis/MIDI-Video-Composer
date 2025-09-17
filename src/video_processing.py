@@ -177,11 +177,136 @@ def midi_to_dict(midi_path, channel=None):
         for k in result.keys():
             result[k].append(n[k])
     
+    print(len(set(result["channel"])))
     return result
 
 
-def count_channels(midi):
-    for k in midi:
-        print(k,midi[k])
-    print()
-    return len(set(midi["channel"]))
+def count_channels(midi):    
+    return list(set(midi["channel"]))
+
+
+def create_clip_unrestricted(origin_video, midi_track, save_name, dur_mult=1,
+                imgshape='vertical', autotune=True, fade_duration=0.05):
+    """
+    Cria vídeo sequenciado a partir de notas.
+    
+    pause_path: caminho de uma imagem para preencher os tempos sem notas
+    """
+    # Carrega notas do instrumento
+    csv_path = origin_video.split('.')[0] + '.csv' 
+    notas = pd.read_csv(csv_path)
+    print(notas)
+
+    if imgshape == 'vertical':
+        target_aspect = 9 / 16
+    elif imgshape == 'horizontal':
+        target_aspect = 16 / 9
+    else:
+        target_aspect = 1
+    closest_to_target = np.inf
+    
+    vid = VideoFileClip(origin_video)
+    width, height = vid.w, vid.h
+    # video com aspect ratio mais proximo do alvo
+    if ((width/height) - float(target_aspect))**2 < closest_to_target:
+        closest_to_target = ((width/height) - target_aspect)**2
+        size = (width, height)
+    print(size)
+    if size[0]/size[1] > target_aspect:
+        size = (int(size[1]*target_aspect), size[1])
+    else:
+        size = (size[0], int(size[0]/target_aspect))
+    print("Target size:", size)
+    
+    
+ 
+    clips = []
+    intervals = []  # armazenar (start, end) de cada nota
+    
+    for i in range(len(midi_track['midi'])):
+        midi_note = midi_track['midi'][i]
+        freq = librosa.midi_to_hz(midi_note)
+
+        note_dur = midi_track['end'][i] - midi_track['start'][i]
+        while note_dur > 0.0:
+            this_note = notas.loc[notas['midi'] == midi_note]
+
+            if len(this_note) == 0:
+                print(f"missing note of midi {midi_note}, trying closest with dur >= {note_dur}")
+                this_note=notas.loc[notas['duracao'] >= note_dur].copy()
+                this_note['diff'] = np.abs(this_note['midi'] - midi_track['midi'][i])
+                notes_sorted = this_note.sort_values(by='diff')
+                this_note = notes_sorted.head(3)
+
+            with_eyes = this_note.dropna()
+            if len(with_eyes) == 0:
+                note_dur -= 0.05
+                continue
+            if not with_eyes.empty:
+                this_note = with_eyes.sample(n=1)
+            else:
+                this_note = this_note.sample(n=1)
+
+            this_note = this_note.iloc[0].to_dict()
+            source_start_time = this_note['inicio']*dur_mult
+            start_time = midi_track['start'][i]
+            
+            print(this_note)
+            
+            note_clip = (vid
+                        .subclipped(source_start_time, source_start_time + note_dur)
+                        .cropped(width=size[0], height=size[1], x_center=vid.w//2, y_center=vid.h//2)
+                        .with_start(start_time)
+                        .with_effects([afx.AudioFadeIn(fade_duration),
+                                        afx.AudioFadeOut(fade_duration)]))
+            
+            if autotune:
+                note_clip = autotune_clip(
+                    note_clip,
+                    target_midi=midi_note,
+                    source_midi=librosa.hz_to_midi(this_note['median freq'])
+                )
+            
+            clips.append(note_clip)
+            intervals.append((start_time, start_time + note_dur))
+            note_dur = 0.0  # sair do loop
+
+
+
+    print("Renderizando...")
+    cc = CompositeVideoClip(clips, size=size)
+    save_name = os.path.join(os.path.dirname(origin_video), save_name)
+    print("AAAA", save_name)
+    cc.write_videofile(save_name)
+
+    return save_name
+
+
+def autotune_clip(clip: VideoFileClip, source_midi: float, target_midi: float):
+    """
+    Ajusta o pitch do vídeo para a nota alvo (em MIDI), sempre mantendo
+    no intervalo de ±6 semitons (mesma oitava ou a mais próxima).
+
+    Retorna o novo clip com pitch alterado (áudio e vídeo juntos).
+    """
+    semitone_shift = target_midi - source_midi
+
+    # Traz para o intervalo [-6, 6]
+    while semitone_shift > 6:
+        semitone_shift -= 12
+    while semitone_shift < -6:
+        semitone_shift += 12
+
+    # Converte para fator de velocidade
+    factor = 2 ** (semitone_shift / 12)
+
+    # Aplica pitch shift (via alteração de velocidade)
+    new_clip = clip.with_speed_scaled(factor)
+
+    return new_clip
+
+def load_image_corrected(path):
+    img = Image.open(path)
+    img = ImageOps.exif_transpose(img)  # respeita orientação EXIF
+    return np.array(img)
+

@@ -4,7 +4,7 @@ import os
 import json
 from streamlit_javascript import st_javascript
 import streamlit as st
-from src.video_processing import video_note_split, midi_to_dict, count_channels
+from src.video_processing import video_note_split, midi_to_dict, count_channels, create_clip_unrestricted
 
 
 
@@ -41,6 +41,7 @@ st.title(t("title", st.session_state.lang))
 # UPLOAD DE VÍDEO
 # -------------------
 st.markdown("---")  # separador
+video_loaded = False
 st.subheader(t("upload_video", st.session_state.lang))
 v_header = t("video_hints_header", st.session_state.lang)
 
@@ -60,12 +61,13 @@ with col2:
             f.write(uploaded_video.read())
         st.success("✅ Vídeo carregado com sucesso!")
         if "csv_path" not in st.session_state or st.session_state.video_name != uploaded_video.name:
-            with st.spinner("⏳ Processando, aguarde..."):
+            with st.spinner("⏳ Analisando notas, aguarde alguns minutos..."):
                 csv_path = video_note_split(video_path, threshold=0.8, tune_thresh=0.3, dur_thresh=0.1,
                         find_eyes=False, show_notes=False)  
                 st.success("✅ Pronto!")
                 st.session_state.csv_path = csv_path
                 st.session_state.video_name = uploaded_video.name
+                video_loaded = True
         
 # -------------------
 # ESCOLHA DE MIDI
@@ -78,6 +80,7 @@ midi_files = os.listdir("data/midis")
 options = [t("upload_midi", st.session_state.lang)] + midi_files
 
 midi = None
+midi_loaded = False
 with col1:
     midi_choice = st.selectbox(t("upload_midi", st.session_state.lang), options, index=0)
 
@@ -95,36 +98,36 @@ with col2:
         midi = midi_to_dict(midi_path, channel=None)
         print("MIDI lido com sucesso.")
         st.success("✅ MIDI lido com sucesso!")
-        st.caption(f"Contém {count_channels(midi)} canal/canais.")
+        st.caption(f"Foram identificados os canais {count_channels(midi)}.")
+        midi_loaded = True
 # -------------------
 # PROCESSAMENTO
 # -------------------
 st.markdown("---")  # separador
-if uploaded_video and midi_path:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_vid:
-        tmp_vid.write(uploaded_video.read())
-        video_path = tmp_vid.name
+st.subheader("Escolha o formato do vídeo final:")
 
-    st.video(video_path)
-    st.write(f"🎼 Usando MIDI: {os.path.basename(midi_path)}")
+formato = st.radio(
+    "Formato:",
+    options=["Horizontal", "Vertical", "Quadrado"],
+    index=0  # opção padrão
+)
 
-    if st.button("🚀 Processar"):
-        progress = st.progress(0)
-        status = st.empty()
+st.write("Formato selecionado:", formato)
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as out:
-            result_path = out.name
+process = st.button("Gerar vídeo", disabled=not (video_loaded and midi_loaded))
+print(f"Process button clicked: {process}, video_loaded: {video_loaded}, midi_loaded: {midi_loaded}")
 
-        #process_video_with_midi(video_path, midi_path, result_path, progress, status)
-        print("Processamento simulado...")  # Remover esta linha quando implementar
-        st.success("✅ Processamento concluído!")
-        st.video(result_path)
 
-        with open(result_path, "rb") as f:
-            st.download_button("Baixar vídeo", f, file_name="resultado.mp4")
+if process:
+    with st.spinner("⏳ Processando, aguarde... Pode demorar muitos minutos..."):
 
-        # limpeza (opcional)
-        os.remove(video_path)
-        if midi_choice == "Upload MIDI":
-            os.remove(midi_path)
-        os.remove(result_path)
+        saved_video = create_clip_unrestricted(video_path, midi, save_name = "results.mp4", dur_mult=1,
+                    imgshape='vertical', autotune=True, fade_duration=0.05)    
+        
+        result_path = os.path.join(st.session_state.temp_dir, saved_video)
+
+        if result_path is not None:
+            st.video(result_path)
+            with open(result_path, "rb") as f:
+                st.download_button("⬇️ Baixar vídeo", f, file_name="resultado.mp4", mime="video/mp4")
+    
