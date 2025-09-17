@@ -12,6 +12,13 @@ from src.video_processing import video_note_split, midi_to_dict, count_channels,
 if "temp_dir" not in st.session_state:
     st.session_state.temp_dir = tempfile.mkdtemp()
 print(f"Temporary directory: {st.session_state.temp_dir}")
+
+if "video_loaded" not in st.session_state:
+    st.session_state.video_loaded = False
+if "midi_loaded" not in st.session_state:
+    st.session_state.midi_loaded = False
+
+
 # -------------------
 # CONFIGURAÇÃO DE LINGUAGEM
 # -------------------
@@ -41,7 +48,6 @@ st.title(t("title", st.session_state.lang))
 # UPLOAD DE VÍDEO
 # -------------------
 st.markdown("---")  # separador
-video_loaded = False
 st.subheader(t("upload_video", st.session_state.lang))
 v_header = t("video_hints_header", st.session_state.lang)
 
@@ -67,7 +73,7 @@ with col2:
                 st.success("✅ Pronto!")
                 st.session_state.csv_path = csv_path
                 st.session_state.video_name = uploaded_video.name
-                video_loaded = True
+                st.session_state.video_loaded = True
         
 # -------------------
 # ESCOLHA DE MIDI
@@ -80,7 +86,6 @@ midi_files = os.listdir("data/midis")
 options = [t("upload_midi", st.session_state.lang)] + midi_files
 
 midi = None
-midi_loaded = False
 with col1:
     midi_choice = st.selectbox(t("upload_midi", st.session_state.lang), options, index=0)
 
@@ -99,7 +104,8 @@ with col2:
         print("MIDI lido com sucesso.")
         st.success("✅ MIDI lido com sucesso!")
         st.caption(f"Foram identificados os canais {count_channels(midi)}.")
-        midi_loaded = True
+        st.session_state.midi_loaded = True
+        
 # -------------------
 # PROCESSAMENTO
 # -------------------
@@ -114,8 +120,8 @@ formato = st.radio(
 
 st.write("Formato selecionado:", formato)
 
-process = st.button("Gerar vídeo", disabled=not (video_loaded and midi_loaded))
-print(f"Process button clicked: {process}, video_loaded: {video_loaded}, midi_loaded: {midi_loaded}")
+process = st.button("Gerar vídeo", disabled=not (st.session_state.video_loaded and st.session_state.midi_loaded))
+print(f"Process button clicked: {process}, video_loaded: {st.session_state.video_loaded}, midi_loaded: {st.session_state.midi_loaded}")
 
 
 if process:
