@@ -111,29 +111,31 @@ with col2:
 # -------------------
 st.markdown("---")  # separador
 st.subheader("Escolha o formato do vídeo final:")
+col1, col2 = st.columns([1, 1])
 
-formato = st.radio(
-    "Formato:",
-    options=["Horizontal", "Vertical", "Quadrado"],
-    index=0  # opção padrão
-)
+with col1:
+    formato = st.radio(
+        "Formato:",
+        options=["Horizontal", "Vertical", "Quadrado"],
+        index=0  # opção padrão
+    )
 
-st.write("Formato selecionado:", formato)
+    st.write("Formato selecionado:", formato)
 
-process = st.button("Gerar vídeo", disabled=not (st.session_state.video_loaded and st.session_state.midi_loaded))
-print(f"Process button clicked: {process}, video_loaded: {st.session_state.video_loaded}, midi_loaded: {st.session_state.midi_loaded}")
+    process = st.button("Gerar vídeo", disabled=not (st.session_state.video_loaded and st.session_state.midi_loaded))
+    print(f"Process button clicked: {process}, video_loaded: {st.session_state.video_loaded}, midi_loaded: {st.session_state.midi_loaded}")
 
+with col2:
+    if process:
+        with st.spinner("⏳ Processando, aguarde... Pode demorar muitos minutos..."):
 
-if process:
-    with st.spinner("⏳ Processando, aguarde... Pode demorar muitos minutos..."):
+            saved_video = create_clip_unrestricted(video_path, midi, save_name = "results.mp4", dur_mult=1,
+                        imgshape='vertical', autotune=True, fade_duration=0.05)    
+            
+            result_path = os.path.join(st.session_state.temp_dir, saved_video)
 
-        saved_video = create_clip_unrestricted(video_path, midi, save_name = "results.mp4", dur_mult=1,
-                    imgshape='vertical', autotune=True, fade_duration=0.05)    
+            if result_path is not None:
+                st.video(result_path)
+                with open(result_path, "rb") as f:
+                    st.download_button("⬇️ Baixar vídeo", f, file_name="resultado.mp4", mime="video/mp4")
         
-        result_path = os.path.join(st.session_state.temp_dir, saved_video)
-
-        if result_path is not None:
-            st.video(result_path)
-            with open(result_path, "rb") as f:
-                st.download_button("⬇️ Baixar vídeo", f, file_name="resultado.mp4", mime="video/mp4")
-    
