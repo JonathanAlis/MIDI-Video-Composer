@@ -5,18 +5,20 @@ import json
 from streamlit_javascript import st_javascript
 import streamlit as st
 from src.video_processing import video_note_split, midi_to_dict, count_channels, create_clip_unrestricted
+import pandas as pd
 
-
+# -------------------
+# INICIALIZAÇÃO DE SESSÃO
+# -------------------
+if "video_loaded" not in st.session_state:
+    st.session_state.video_loaded = False
+if "midi_loaded" not in st.session_state:
+    st.session_state.midi_loaded = False
 
 # Criar diretório temporário
 if "temp_dir" not in st.session_state:
     st.session_state.temp_dir = tempfile.mkdtemp()
 print(f"Temporary directory: {st.session_state.temp_dir}")
-
-if "video_loaded" not in st.session_state:
-    st.session_state.video_loaded = False
-if "midi_loaded" not in st.session_state:
-    st.session_state.midi_loaded = False
 
 
 # -------------------
@@ -67,13 +69,17 @@ with col2:
             f.write(uploaded_video.read())
         st.success("✅ Vídeo carregado com sucesso!")
         if "csv_path" not in st.session_state or st.session_state.video_name != uploaded_video.name:
-            with st.spinner("⏳ Analisando notas, aguarde alguns minutos..."):
+            with st.spinner("⏳ Analisando notas, aguarde um ou mais minutos..."):
                 csv_path = video_note_split(video_path, threshold=0.8, tune_thresh=0.3, dur_thresh=0.1,
                         find_eyes=False, show_notes=False)  
-                st.success("✅ Pronto!")
-                st.session_state.csv_path = csv_path
-                st.session_state.video_name = uploaded_video.name
-                st.session_state.video_loaded = True
+                df = pd.read_csv(csv_path)
+                if len(df) == 0:
+                    st.error("❌ 0 Notas identificadas, escolha outro vídeo.")
+                else:                        
+                    st.success(f"✅ Video analisado, encontradas {len(df)} notas!")
+                    st.session_state.csv_path = csv_path
+                    st.session_state.video_name = uploaded_video.name
+                    st.session_state.video_loaded = True
         
 # -------------------
 # ESCOLHA DE MIDI
@@ -116,7 +122,7 @@ col1, col2 = st.columns([1, 1])
 with col1:
     formato = st.radio(
         "Formato:",
-        options=["Horizontal", "Vertical", "Quadrado"],
+        options=["Igual ao original", "Horizontal", "Vertical", "Quadrado"],
         index=0  # opção padrão
     )
 
@@ -130,7 +136,7 @@ with col2:
         with st.spinner("⏳ Processando, aguarde... Pode demorar muitos minutos..."):
 
             saved_video = create_clip_unrestricted(video_path, midi, save_name = "results.mp4", dur_mult=1,
-                        imgshape='vertical', autotune=True, fade_duration=0.05)    
+                        imgshape=formato.lower(), autotune=True, fade_duration=0.05)    
             
             result_path = os.path.join(st.session_state.temp_dir, saved_video)
 

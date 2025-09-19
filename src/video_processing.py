@@ -201,23 +201,27 @@ def create_clip_unrestricted(origin_video, midi_track, save_name, dur_mult=1,
         target_aspect = 9 / 16
     elif imgshape == 'horizontal':
         target_aspect = 16 / 9
-    else:
+    elif imgshape == 'quadrado':
         target_aspect = 1
+    else:
+        target_aspect = 0
     closest_to_target = np.inf
     
     vid = VideoFileClip(origin_video)
     width, height = vid.w, vid.h
-    # video com aspect ratio mais proximo do alvo
-    if ((width/height) - float(target_aspect))**2 < closest_to_target:
-        closest_to_target = ((width/height) - target_aspect)**2
-        size = (width, height)
-    print(size)
-    if size[0]/size[1] > target_aspect:
-        size = (int(size[1]*target_aspect), size[1])
+    if target_aspect > 0:
+        # video com aspect ratio mais proximo do alvo
+        if ((width/height) - float(target_aspect))**2 < closest_to_target:
+            closest_to_target = ((width/height) - target_aspect)**2
+            size = (width, height)
+        print(size)
+        if size[0]/size[1] > target_aspect:
+            size = (int(size[1]*target_aspect), size[1])
+        else:
+            size = (size[0], int(size[0]/target_aspect))
+        print("Target size:", size)
     else:
-        size = (size[0], int(size[0]/target_aspect))
-    print("Target size:", size)
-    
+        size = (width, height)    
     
  
     clips = []
