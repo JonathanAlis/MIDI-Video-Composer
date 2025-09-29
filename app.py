@@ -1,6 +1,7 @@
 import streamlit as st
 import tempfile
 import os
+import shutil
 import json
 from streamlit_javascript import st_javascript
 import streamlit as st
@@ -46,8 +47,9 @@ def t(key, lang="pt"):
 st.set_page_config(page_title=t("title", st.session_state.lang), layout="centered")
 st.title(t("title", st.session_state.lang))
 
+
 # -------------------
-# UPLOAD DE VÍDEO
+# UPLOAD OU ESCOLHA DE VÍDEO
 # -------------------
 st.markdown("---")  # separador
 st.subheader(t("upload_video", st.session_state.lang))
@@ -59,28 +61,54 @@ for line in t("video_hints", st.session_state.lang).split("\n"):
     video_markdown += f"\n- {line.strip()}"
 with col1:
     st.markdown(video_markdown)
-    uploaded_video = st.file_uploader(t("upload_video", st.session_state.lang), type=["mp4", "mov", "avi"])
+
+    # Lista de vídeos da pasta data/instruments
+    video_files = os.listdir("data/instruments")
+    video_files = [f for f in video_files if f.lower().endswith(('.mp4', '.mov', '.avi'))]
+    options = [t("upload_video", st.session_state.lang)] + video_files
+
+    video_choice = st.selectbox(t("upload_video", st.session_state.lang), options, index=0)
+
+    video_path = None
+    uploaded_video = None
+
+    if video_choice == t("upload_video", st.session_state.lang):
+        uploaded_video = st.file_uploader(
+            t("upload_video", st.session_state.lang),
+            type=["mp4", "mov", "avi"]
+        )
+    else:
+        shutil.copy(os.path.join("data", "instruments", video_choice), st.session_state.temp_dir)
+        video_path = os.path.join(st.session_state.temp_dir, video_choice)
+
 with col2:
     if uploaded_video is not None:
         st.video(uploaded_video)
         video_path = os.path.join(st.session_state.temp_dir, uploaded_video.name)
-        print(video_path)
         with open(video_path, "wb") as f:
             f.write(uploaded_video.read())
         st.success("✅ Vídeo carregado com sucesso!")
-        if "csv_path" not in st.session_state or st.session_state.video_name != uploaded_video.name:
-            with st.spinner("⏳ Analisando notas, aguarde um ou mais minutos..."):
-                csv_path = video_note_split(video_path, threshold=0.8, tune_thresh=0.3, dur_thresh=0.1,
-                        find_eyes=False, show_notes=False)  
-                df = pd.read_csv(csv_path)
-                if len(df) == 0:
-                    st.error("❌ 0 Notas identificadas, escolha outro vídeo.")
-                else:                        
-                    st.success(f"✅ Video analisado, encontradas {len(df)} notas!")
-                    st.session_state.csv_path = csv_path
-                    st.session_state.video_name = uploaded_video.name
-                    st.session_state.video_loaded = True
-        
+    elif video_path:
+        st.video(video_path)
+        st.success("✅ Vídeo selecionado com sucesso!")
+
+# Processamento do vídeo
+if video_path is not None:
+    if "csv_path" not in st.session_state or st.session_state.video_name != os.path.basename(video_path):
+        with st.spinner("⏳ Analisando notas, aguarde um ou mais minutos..."):
+            csv_path = video_note_split(
+                video_path,
+                threshold=0.8, tune_thresh=0.3, dur_thresh=0.1,
+                find_eyes=False, show_notes=False
+            )
+            df = pd.read_csv(csv_path)
+            if len(df) == 0:
+                st.error("❌ 0 Notas identificadas, escolha outro vídeo.")
+            else:
+                st.success(f"✅ Vídeo analisado, encontradas {len(df)} notas!")
+                st.session_state.csv_path = csv_path
+                st.session_state.video_name = os.path.basename(video_path)
+                st.session_state.video_loaded = True
 # -------------------
 # ESCOLHA DE MIDI
 # -------------------
